@@ -13,7 +13,36 @@ async function init() {
     setupSearch();
     setupAwardBanner();
     setupThemeToggle();
+    restoreFromUrl();
     render();
+
+    window.addEventListener('popstate', () => {
+        restoreFromUrl();
+        render();
+    });
+}
+
+
+function updateUrl() {
+    const params = new URLSearchParams();
+    const q = document.getElementById('main-search').value.trim();
+    if (q) params.set('q', q);
+    if (activeAward) params.set('award', activeAward);
+    const qs = params.toString();
+    const url = window.location.pathname + (qs ? '?' + qs : '');
+    history.replaceState(null, '', url);
+}
+
+function restoreFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('q')) {
+        document.getElementById('main-search').value = params.get('q');
+    }
+    if (params.has('award')) {
+        activeAward = params.get('award');
+        document.getElementById('active-filter').style.display = 'flex';
+        document.getElementById('active-filter-text').textContent = `Award: ${activeAward}`;
+    }
 }
 
 // Search
@@ -34,11 +63,12 @@ function setupAwardBanner() {
 function getFiltered() {
     const query = document.getElementById('main-search').value.trim().toLowerCase();
 
-    let list = allFaculty;
+    // Only show faculty who have at least one award
+    let list = allFaculty.filter(f => f.awards.length > 0);
 
     // Award tag filter
     if (activeAward) {
-        list = awardIndex.get(activeAward) || [];
+        list = (awardIndex.get(activeAward) || []).filter(f => f.awards.length > 0);
     }
 
     // Search query
@@ -64,14 +94,14 @@ function render() {
 
     countEl.textContent = `${filtered.length} faculty`;
     grid.innerHTML = filtered.map(renderCard).join('');
+    updateUrl();
 }
 
 function renderCard(f) {
     const fullName = `${f.firstName} ${f.lastName}`;
+    const peopleUrl = `https://realgmucs.github.io/people/?q=${encodeURIComponent(f.firstName + ' ' + f.lastName)}`;
 
-    const awardTags = f.awards.length > 0
-        ? f.awards.map(a => `<span class="award-tag" data-award="${a}">${a}</span>`).join('')
-        : '<span class="no-awards">No awards on record</span>';
+    const awardTags = f.awards.map(a => `<span class="award-tag" data-award="${a}">${a}</span>`).join('');
 
     const details = [];
     if (f.email) details.push(detailRow('Email', `<span class="email-text">${f.email}</span>`));
@@ -81,11 +111,11 @@ function renderCard(f) {
 
     return `
     <div class="card">
-      <div class="card-header" onclick="toggleCard(this)">
-        <h2>${fullName}</h2>
+      <div class="card-header" onclick="toggleCard(this, event)">
+        <h2><a href="${peopleUrl}" target="_blank" class="faculty-name-link">${fullName}</a></h2>
         <span class="toggle-icon">▼</span>
       </div>
-      <div class="card-subtitle">${f.awards.length > 0 ? `${f.awards.length} award${f.awards.length > 1 ? 's' : ''}` : ''}</div>
+      <div class="card-subtitle">${f.awards.length} award${f.awards.length > 1 ? 's' : ''}</div>
       <div class="card-content">
         <div class="faculty-details">${details.join('')}</div>
         ${links.length ? `<div class="card-links">${links.join('')}</div>` : ''}
@@ -100,7 +130,8 @@ function detailRow(label, value) {
 }
 
 // Card expand/collapse
-window.toggleCard = function (header) {
+window.toggleCard = function (header, e) {
+    if (e && e.target.closest('.faculty-name-link')) return;
     header.closest('.card').classList.toggle('collapsed');
 };
 

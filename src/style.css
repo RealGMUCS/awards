@@ -196,6 +196,18 @@ header p {
     cursor: text;
 }
 
+.faculty-name-link {
+    color: var(--text-primary);
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.faculty-name-link:hover {
+    color: var(--primary-color);
+    text-decoration: underline;
+}
+
 .card-header {
     display: flex;
     justify-content: space-between;
